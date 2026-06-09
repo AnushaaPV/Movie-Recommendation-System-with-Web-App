@@ -12,33 +12,17 @@
 
 ---
 
-## 📌 What It Does
+## What It Does
 
-- 🔍 **Search** from 4,800+ movies using a smart dropdown
-- 🎯 **Get recommendations** based on content similarity — not popularity
-- 🖼️ **See movie posters** fetched live from TMDB API
-- ⭐ **View ratings and synopses** for every recommended movie
-- 🎛️ **Control** how many recommendations you want (3 to 10)
+- **Search** from 4,800+ movies using a smart dropdown
+- **Get recommendations** based on content similarity — not popularity
+- **See movie posters** fetched live from TMDB API
+- **View ratings and synopses** for every recommended movie
+- **Control** how many recommendations you want (3 to 10)
 
 ---
 
-## 🧠 How It Works
 
-```
-You pick a movie
-       ↓
-System looks at its content:
-plot + genres + keywords + top 3 cast + director
-       ↓
-Compares it against all 4,800 movies
-using Cosine Similarity
-       ↓
-Returns the most similar movies
-       ↓
-Fetches posters & ratings from TMDB API
-       ↓
-Displays results in the web app
-```
 
 ### Algorithm: Content-Based Filtering
 
@@ -53,9 +37,9 @@ Displays results in the web app
 ### Why Content-Based Filtering?
 
 Content-based filtering works purely on **movie attributes** — no user history or ratings needed:
-- ✅ Works for brand new users immediately
-- ✅ No cold start problem
-- ✅ Recommendations are explainable — you can see exactly why two movies are similar
+-  Works for brand new users immediately
+- No cold start problem
+- Recommendations are explainable — you can see exactly why two movies are similar
 
 ---
 
@@ -92,11 +76,6 @@ movie-recommender/
 ├── movies.pkl                ← Generated: cleaned movie DataFrame (4,806 rows)
 └── similarity.pkl            ← Generated: 4,806 × 4,806 cosine similarity matrix
 ```
-
----
-
-## ⚙️ Run Locally
-
 
 ## Run it yourself
 
