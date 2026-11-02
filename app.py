@@ -1,6 +1,7 @@
 """CineMatch - content-based movie recommender (Streamlit)."""
 import os
 import pickle
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -38,19 +39,23 @@ movies_df, vectors = load_model()
 
 
 @st.cache_data(ttl=24 * 3600, show_spinner=False)
-def fetch_info(movie_id: int) -> dict:
-    """Get poster, rating, year and overview from TMDB. Cached for one day."""
-    if not TMDB_API_KEY:
-        return NO_INFO
-    try:
-        r = requests.get(
-            f"https://api.themoviedb.org/3/movie/{int(movie_id)}",
-            params={"api_key": TMDB_API_KEY, "language": "en-US"},
-            timeout=10,
-        )
-        r.raise_for_status()
-    except requests.RequestException:
-        return NO_INFO
+def _fetch_from_tmdb(movie_id: int) -> dict:
+    """Ask TMDB for one movie. Retries 3 times. Errors are raised, so they are NOT cached."""
+    last_error = None
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                f"https://api.themoviedb.org/3/movie/{int(movie_id)}",
+                params={"api_key": TMDB_API_KEY, "language": "en-US"},
+                timeout=10,
+            )
+            r.raise_for_status()
+            break
+        except requests.RequestException as error:
+            last_error = error
+            time.sleep(0.5 * (attempt + 1))
+    else:
+        raise last_error
     data = r.json()
     poster = data.get("poster_path")
     rating = data.get("vote_average")
@@ -61,6 +66,16 @@ def fetch_info(movie_id: int) -> dict:
         "overview": data.get("overview") or NO_INFO["overview"],
         "year": date[:4] or "N/A",
     }
+
+
+def fetch_info(movie_id: int) -> dict:
+    """Poster, rating, year and overview for one movie. Shows 'N/A' if TMDB fails."""
+    if not TMDB_API_KEY:
+        return NO_INFO
+    try:
+        return _fetch_from_tmdb(movie_id)
+    except requests.RequestException:
+        return NO_INFO
 
 
 def recommend(row_index: int, n: int = 6):
