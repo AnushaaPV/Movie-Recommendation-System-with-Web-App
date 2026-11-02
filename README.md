@@ -2,7 +2,7 @@
 
 A content-based movie recommender built with Python, scikit-learn and Streamlit. Pick a movie you liked and get similar ones, with posters and ratings from TMDB.
 
-**Live demo:** https://anushaapv-movie-recommender-app.streamlit.app
+**Live demo:** https://movie-recommendation-system-with-web-app-5mjvhvknp97rbttmenihp.streamlit.app/
 *(Free apps go to sleep. If you see a "wake up" button, click it and wait a few seconds.)*
 
 ## What it does
