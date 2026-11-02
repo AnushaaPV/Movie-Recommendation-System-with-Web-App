@@ -1,188 +1,65 @@
+# 🎬 CineMatch: Movie Recommendation System
 
-# 🎬 CineMatch — Movie Recommendation System
+A content-based movie recommender built with Python, scikit-learn and Streamlit. Pick a movie you liked and get similar ones, with posters and ratings from TMDB.
 
->A Machine Learning-powered movie recommendation web application that suggests similar movies based on content similarity. Built using Python, Scikit-learn, and Streamlit,trained on 4,800+ movies from the TMDB dataset. This project provides personalized movie recommendations along with posters, ratings, release years, and movie overviews.
----
+**Live demo:** https://anushaapv-movie-recommender-app.streamlit.app
+*(Free apps go to sleep. If you see a "wake up" button, click it and wait a few seconds.)*
 
-## 🚀 Live Demo
+## What it does
+- Search 4,800+ movies from the TMDB 5000 dataset
+- Recommends movies with similar plot, genres, keywords, cast and director
+- Shows poster, year, rating and synopsis for each result
+- You choose how many results to see (3 to 10)
 
- **[Launch the App]([http://localhost:8501/])**
+## How it works
+1. Join plot, genres, keywords, top 3 cast and the director into one text per movie
+2. Join names into one word (`Sam Worthington` becomes `SamWorthington`) and reduce words to their roots with Porter stemming
+3. Turn the text into word-count vectors (CountVectorizer, 5,000 words)
+4. For the chosen movie, compute cosine similarity against all other movies and show the top N
 
-> 👆 Click the badge to try the live app — no installation needed!
+The vectors are kept in sparse form and one similarity row is computed per request. This avoids storing a 4,806 x 4,806 matrix.
 
----
-
-## What It Does
-
-- **Search** from 4,800+ movies using a smart dropdown
-- **Get recommendations** based on content similarity — not popularity
-- **See movie posters** fetched live from TMDB API
-- **View ratings and synopses** for every recommended movie
-- **Control** how many recommendations you want (3 to 10)
-
----
-
-
-
-### Algorithm: Content-Based Filtering
-
-| Step | What Happens |
-|---|---|
-| **1. Feature Extraction** | Combine plot overview, genres, keywords, top 3 cast, and director into one "tags" string per movie |
-| **2. Text Preprocessing** | Collapse multi-word names (`Sam Worthington` → `SamWorthington`). Apply Porter Stemming (`running` → `run`) |
-| **3. Vectorization** | CountVectorizer converts each movie's tags into a 5,000-dimension numerical vector |
-| **4. Cosine Similarity** | Compute a 4,800 × 4,800 matrix of similarity scores between every pair of movies |
-| **5. Recommendation** | Sort the selected movie's similarity row from highest to lowest — return top N results |
-
-### Why Content-Based Filtering?
-
-Content-based filtering works purely on **movie attributes** — no user history or ratings needed:
--  Works for brand new users immediately
-- No cold start problem
-- Recommendations are explainable — you can see exactly why two movies are similar
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Language** | Python 3.11 |
-| **Web Framework** | Streamlit |
-| **Machine Learning** | Scikit-learn (CountVectorizer, Cosine Similarity) |
-| **NLP** | NLTK (Porter Stemmer) |
-| **Data Processing** | Pandas, NumPy |
-| **Poster & Ratings API** | TMDB REST API (live calls) |
-| **Dataset** | TMDB 5000 Movie Dataset (Kaggle) |
-| **Deployment** | Streamlit Cloud (free hosting) |
-| **Version Control** | Git + GitHub |
-
----
-
-## 📁 Project Structure
-
-```
-movie-recommender/
-│
-├── app.py                    ← Streamlit web app (UI + recommendation logic + API)
-├── model_builder.py          ← ML pipeline — run once to build the model
-├── requirements.txt          ← Python dependencies for deployment
-├── README.md                 ← This file
-├── .gitignore                ← Files excluded from Git
-│
-├── tmdb_5000_movies.csv      ← Movie metadata (title, genres, overview, keywords)
-├── tmdb_5000_credits.csv     ← Cast and crew data
-│
-├── movies.pkl                ← Generated: cleaned movie DataFrame (4,806 rows)
-└── similarity.pkl            ← Generated: 4,806 × 4,806 cosine similarity matrix
-```
+## Tech stack
+Python, pandas, scikit-learn, NLTK, SciPy, Streamlit, TMDB API
 
 ## Run it yourself
-
 ```bash
-# clone the repo
-git clone https://github.com/AnushaaPV/movie-recommender.git
-cd movie-recommender
-
-# set up a virtual environment
+git clone https://github.com/AnushaaPV/Movie-Recommendation-System-with-Web-App.git
+cd Movie-Recommendation-System-with-Web-App
 python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux
-
-# install libraries
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-Get a free TMDB API key from [themoviedb.org](https://www.themoviedb.org/) (Settings → API) and paste it into `app.py` where it says `TMDB_API_KEY`.
-
-```bash
-# build the model (takes about 1-2 minutes)
-python model_builder.py
-
-# run the app
+python model_builder.py         # builds movies.pkl and vectors.npz (about 1 minute)
 streamlit run app.py
 ```
----
 
-## 🌐 Deploy to Streamlit Cloud
-
-1. Push your code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Sign in with GitHub → click **New app**
-4. Select repository: `AnushaaPV/movie-recommender`, branch: `main`, file: `app.py`
-5. Click **Advanced settings → Secrets** and add:
+### TMDB API key (optional, for posters and ratings)
+Get a free key at themoviedb.org (Settings, then API). Then **do not put it in the code**. Create `.streamlit/secrets.toml`:
 ```toml
-TMDB_API_KEY = "your_actual_key_here"
+TMDB_API_KEY = "your_key_here"
 ```
-6. Click **Deploy** — live in 3-5 minutes ✅
+On Streamlit Cloud, add the same line under App settings, then Secrets. Without a key the app still works, but posters are hidden.
 
----
-
-## 🔑 Environment Variables
-
-| Variable | Description | Where to Get It |
-|---|---|---|
-| `TMDB_API_KEY` | Fetches movie posters and ratings | [themoviedb.org](https://www.themoviedb.org/) → Settings → API |
-
----
-
-## 📊 Dataset Details
-
-| Property | Detail |
+## Project files
+| File | Purpose |
 |---|---|
-| **Source** | [TMDB 5000 Movie Dataset — Kaggle](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata) |
-| **Total Movies** | 4,806 |
-| **Files** | `tmdb_5000_movies.csv` + `tmdb_5000_credits.csv` |
-| **Features Used** | title, overview, genres, keywords, cast (top 3), crew (director) |
-| **Vocabulary Size** | 5,000 most common words |
-| **Similarity Matrix** | 4,806 × 4,806 |
+| `app.py` | Streamlit app: search, recommend, show results |
+| `model_builder.py` | Builds the model files from the two CSVs |
+| `movies.pkl`, `vectors.npz` | Generated model files (small, committed so the app starts fast) |
+| `tmdb_5000_movies.csv`, `tmdb_5000_credits.csv` | Dataset |
 
----
+## Limits
+- Only uses movie content. It does not use user ratings or watch history.
+- Results depend on the text in the dataset, so very new movies are not included.
 
-## 🗂️ Key Files Explained
+## What I learned
+- Turning nested JSON-like text into model features
+- Content-based vs collaborative filtering
+- Why sparse matrices save memory
+- Hiding API keys with secrets and caching API calls
+- Deploying a Streamlit app
 
-### `model_builder.py` — Run Once
-- Loads and merges both CSV files on the `title` column
-- Uses `id` column from movies CSV as the correct TMDB movie ID
-- Extracts genres, keywords, top 3 cast, director from JSON-like strings using `ast.literal_eval`
-- Removes spaces from multi-word names so they stay as one token
-- Creates unified "tags" column by combining all features
-- Applies Porter Stemming via NLTK
-- Vectorizes using CountVectorizer with 5,000 max features
-- Computes cosine similarity matrix
-- Saves `movies.pkl` and `similarity.pkl`
-
-### `app.py` — The Web App
-- Loads saved pkl files (auto-builds on first run if missing)
-- Provides a searchable dropdown with all 4,800+ titles
-- Recommendation function: finds movie index → sorts similarity row → returns top-N
-- Fetches live poster, rating, release year, and overview from TMDB API
-- Displays results in responsive 3-column grid
-- Includes API key test tool and "How It Works" explainer
-
----
-
-## 🌱 Future Improvements
-
-- [ ] Add collaborative filtering using user ratings data
-- [ ] User login and personal watchlist/favourites
-- [ ] Filter by genre, release year, or minimum rating
-- [ ] TV show recommendations
-- [ ] Trailer links via YouTube Data API
-- [ ] Recommend based on multiple movies at once
-
----
-
-## 💡 What I Learned Building This
-
-- Engineering features from raw JSON-like nested text in real datasets
-- The difference between content-based and collaborative filtering approaches
-- How CountVectorizer and cosine similarity work mathematically
-- Building and deploying a full end-to-end ML web application
-- Integrating live REST APIs (TMDB) to enrich ML output with real data
-- Git workflow for version control, collaboration, and cloud deployment
-- Debugging cross-platform path issues between Windows and Linux (Streamlit Cloud)
-
----
-
-
+## Credits
+- Dataset: [TMDB 5000 Movie Dataset on Kaggle](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata)
+- This product uses the TMDB API but is not endorsed or certified by TMDB.
