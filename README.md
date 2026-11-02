@@ -6,7 +6,7 @@
 
 ## 🚀 Live Demo
 
- **[Launch the App](https://anushaapv-movie-recommender-app.streamlit.app)**
+ **[Launch the App]([http://localhost:8501/])**
 
 > 👆 Click the badge to try the live app — no installation needed!
 
