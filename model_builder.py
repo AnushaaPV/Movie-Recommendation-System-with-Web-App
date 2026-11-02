@@ -1,162 +1,95 @@
-import os
-import pandas as pd
-import ast
-import nltk
-import pickle
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from nltk.stem import PorterStemmer
+"""Build the CineMatch model files.
 
-nltk.download('punkt')
-nltk.download('punkt_tab')
+Run once:  python model_builder.py
+Creates:   movies.pkl   (movie_id, title, tags)
+           vectors.npz  (sparse word-count matrix, one row per movie)
+"""
+import ast
+import os
+import pickle
+import sys
+
+import pandas as pd
+import scipy.sparse as sp
+from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import CountVectorizer
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+MOVIES_CSV = os.path.join(BASE, "tmdb_5000_movies.csv")
+CREDITS_CSV = os.path.join(BASE, "tmdb_5000_credits.csv")
+MOVIES_PKL = os.path.join(BASE, "movies.pkl")
+VECTORS_NPZ = os.path.join(BASE, "vectors.npz")
 
 ps = PorterStemmer()
 
-# ── PATHS — works on Windows and Linux (Streamlit Cloud) ──
-BASE           = os.path.dirname(os.path.abspath(__file__))
-MOVIES_CSV     = os.path.join(BASE, "tmdb_5000_movies.csv")
-CREDITS_CSV    = os.path.join(BASE, "tmdb_5000_credits.csv")
-MOVIES_PKL     = os.path.join(BASE, "movies.pkl")
-SIMILARITY_PKL = os.path.join(BASE, "similarity.pkl")
 
-print(f"Working folder : {BASE}")
-print(f"Movies CSV     : {MOVIES_CSV}")
-print(f"Credits CSV    : {CREDITS_CSV}")
-
-# ── CHECK FILES EXIST ─────────────────────────────────────
-if not os.path.exists(MOVIES_CSV):
-    print(f"❌ Not found: {MOVIES_CSV}")
-    exit()
-if not os.path.exists(CREDITS_CSV):
-    print(f"❌ Not found: {CREDITS_CSV}")
-    exit()
-
-print("✅ Both CSV files found")
-
-# ── LOAD ──────────────────────────────────────────────────
-print("\nLoading CSV files...")
-movies  = pd.read_csv(MOVIES_CSV)
-credits = pd.read_csv(CREDITS_CSV)
-print(f"  movies  : {movies.shape}")
-print(f"  credits : {credits.shape}")
-
-# ── MERGE ─────────────────────────────────────────────────
-print("\nMerging...")
-movies = movies.merge(credits, on="title")
-print(f"  merged  : {movies.shape}")
-
-# ── SELECT COLUMNS ────────────────────────────────────────
-# Use 'id' from movies CSV — correct TMDB ID (Avatar = 19995)
-# Do NOT use 'movie_id' from credits — has wrong values
-movies = movies[["id", "title", "overview", "genres", "keywords", "cast", "crew"]]
-movies = movies.rename(columns={"id": "movie_id"})
-movies = movies.dropna().reset_index(drop=True)
-
-print(f"\n  Movies after cleanup : {len(movies)}")
-print(f"  Sample IDs:")
-print(movies[["movie_id", "title"]].head(5).to_string())
-
-avatar = movies[movies["title"] == "Avatar"]["movie_id"].values
-print(f"\n  Avatar ID : {avatar}  (should be [19995])")
-
-# ── HELPER FUNCTIONS ──────────────────────────────────────
-def convert(text):
-    result = []
+def parse_names(text, limit=None, job=None):
+    """Read a JSON-like string and return a list of 'name' values."""
     try:
-        for item in ast.literal_eval(text):
-            result.append(item["name"])
-    except:
-        pass
-    return result
+        items = ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        return []
+    names = []
+    for item in items:
+        if job and item.get("job") != job:
+            continue
+        names.append(item["name"])
+        if limit and len(names) == limit:
+            break
+    return names
 
-def convert_cast(text):
-    result = []
-    count  = 0
-    try:
-        for item in ast.literal_eval(text):
-            if count < 3:
-                result.append(item["name"])
-                count += 1
-            else:
-                break
-    except:
-        pass
-    return result
 
-def get_director(text):
-    try:
-        for item in ast.literal_eval(text):
-            if item["job"] == "Director":
-                return [item["name"]]
-    except:
-        pass
-    return []
+def collapse(names):
+    """'Sam Worthington' -> 'SamWorthington' so each person stays one token."""
+    return [n.replace(" ", "") for n in names]
 
-def collapse(lst):
-    return [i.replace(" ", "") for i in lst]
 
 def stem(text):
-    return " ".join([ps.stem(w) for w in text.split()])
+    return " ".join(ps.stem(w) for w in text.split())
 
-# ── PROCESS ───────────────────────────────────────────────
-print("\nProcessing features...")
-movies["genres"]   = movies["genres"].apply(convert)
-movies["keywords"] = movies["keywords"].apply(convert)
-movies["cast"]     = movies["cast"].apply(convert_cast)
-movies["crew"]     = movies["crew"].apply(get_director)
-movies["overview"] = movies["overview"].apply(
-    lambda x: x.split() if isinstance(x, str) else []
-)
-movies["genres"]   = movies["genres"].apply(collapse)
-movies["keywords"] = movies["keywords"].apply(collapse)
-movies["cast"]     = movies["cast"].apply(collapse)
-movies["crew"]     = movies["crew"].apply(collapse)
-print("  ✅ Done")
 
-# ── TAGS ──────────────────────────────────────────────────
-print("\nCreating tags...")
-movies["tags"] = (
-    movies["overview"] +
-    movies["genres"]   +
-    movies["keywords"] +
-    movies["cast"]     +
-    movies["crew"]
-)
-movies["tags"] = movies["tags"].apply(lambda x: " ".join(x).lower())
-movies["tags"] = movies["tags"].apply(stem)
-print("  ✅ Done")
+def main():
+    for path in (MOVIES_CSV, CREDITS_CSV):
+        if not os.path.exists(path):
+            sys.exit(f"File not found: {path}")
 
-# ── FINAL DATAFRAME ───────────────────────────────────────
-new_df = movies[["movie_id", "title", "tags"]].reset_index(drop=True)
-print(f"\n  Final shape : {new_df.shape}")
+    movies = pd.read_csv(MOVIES_CSV)
+    credits = pd.read_csv(CREDITS_CSV)
 
-# ── VECTORIZE ─────────────────────────────────────────────
-print("\nVectorizing...")
-cv      = CountVectorizer(max_features=5000, stop_words="english")
-vectors = cv.fit_transform(new_df["tags"]).toarray()
-print(f"  Vector shape : {vectors.shape}")
+    # Merge on the movie id (titles are not unique).
+    credits = credits.rename(columns={"movie_id": "id"}).drop(columns=["title"])
+    movies = movies.merge(credits, on="id")
+    movies = movies[["id", "title", "overview", "genres", "keywords", "cast", "crew"]]
+    movies = movies.rename(columns={"id": "movie_id"}).dropna()
+    movies = movies.drop_duplicates(subset="title").reset_index(drop=True)
 
-# ── COSINE SIMILARITY ─────────────────────────────────────
-print("\nComputing similarity (30-60 seconds)...")
-similarity = cosine_similarity(vectors)
-print(f"  Similarity shape : {similarity.shape}")
+    movies["overview"] = movies["overview"].apply(str.split)
+    movies["genres"] = movies["genres"].apply(parse_names).apply(collapse)
+    movies["keywords"] = movies["keywords"].apply(parse_names).apply(collapse)
+    movies["cast"] = movies["cast"].apply(lambda t: collapse(parse_names(t, limit=3)))
+    movies["crew"] = movies["crew"].apply(
+        lambda t: collapse(parse_names(t, limit=1, job="Director"))
+    )
 
-# ── SAVE ──────────────────────────────────────────────────
-print("\nSaving...")
-pickle.dump(new_df,     open(MOVIES_PKL,     "wb"))
-pickle.dump(similarity, open(SIMILARITY_PKL, "wb"))
-print(f"  ✅ Saved : {MOVIES_PKL}")
-print(f"  ✅ Saved : {SIMILARITY_PKL}")
+    tags = movies["overview"] + movies["genres"] + movies["keywords"] + movies["cast"] + movies["crew"]
+    movies["tags"] = tags.apply(lambda parts: stem(" ".join(parts).lower()))
+    final = movies[["movie_id", "title", "tags"]]
 
-# ── VERIFY ────────────────────────────────────────────────
-print("\n--- VERIFICATION ---")
-check      = pickle.load(open(MOVIES_PKL, "rb"))
-avatar_id  = check[check["title"] == "Avatar"]["movie_id"].values
-spectre_id = check[check["title"] == "Spectre"]["movie_id"].values
-print(f"  Avatar ID  : {avatar_id}   → expected [19995]")
-print(f"  Spectre ID : {spectre_id}  → expected [206647]")
+    # Keep the matrix sparse: it is tiny compared to a dense 4800 x 4800 matrix.
+    cv = CountVectorizer(max_features=5000, stop_words="english")
+    vectors = cv.fit_transform(final["tags"])
 
-if len(avatar_id) > 0 and int(avatar_id[0]) == 19995:
-    print("\n  ✅ ALL CORRECT — run: streamlit run app.py")
-else:
-    print("\n  ❌ IDs wrong — screenshot and share")
+    with open(MOVIES_PKL, "wb") as f:
+        pickle.dump(final, f)
+    sp.save_npz(VECTORS_NPZ, vectors)
+
+    # Quick check: Avatar must have TMDB id 19995.
+    avatar = final.loc[final["title"] == "Avatar", "movie_id"].values
+    print(f"Movies: {len(final)} | vectors: {vectors.shape} | Avatar id: {avatar}")
+    if len(avatar) == 0 or int(avatar[0]) != 19995:
+        sys.exit("Check failed: Avatar id should be 19995")
+    print("Done. Now run: streamlit run app.py")
+
+
+if __name__ == "__main__":
+    main()
